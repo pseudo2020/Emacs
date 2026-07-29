@@ -1,0 +1,329 @@
+#+Title: Emacs 30 Configuration
+#+author: John
+#+property: header-args:emacs-lisp :tangle config.el :mkdirp yes
+#+startup: overview
+
+* Early settings
+
+These are set before most packages load.
+
+#+begin_src emacs-lisp
+  (setq inhibit-startup-message t
+        initial-scratch-message nil
+        ring-bell-function #'ignore
+        visible-bell nil
+        use-short-answers t)
+
+  (scroll-bar-mode -1)
+  (blink-cursor-mode -1)
+  (tool-bar-mode -1)
+  (menu-bar-mode -1)
+#+end_src
+
+* Package management
+
+Use GNU ELPA, NonGNU ELPA and MELPA.
+
+#+begin_src emacs-lisp
+  (require 'package)
+
+  (setq package-archives
+        '(("gnu"   . "https://elpa.gnu.org/packages/")
+          ("nongnu" . "https://elpa.nongnu.org/nongnu/")
+          ("melpa" . "https://melpa.org/packages/")))
+
+  (package-initialize)
+
+  (unless package-archive-contents
+    (package-refresh-contents))
+
+  (unless (package-installed-p 'use-package)
+    (package-install 'use-package))
+
+  (require 'use-package)
+  (setq use-package-always-ensure t)
+#+end_src
+
+* Theme and appearance
+
+Sets font, theme and dashboard.
+Activate solaire-mode for visual buffer differentiation.
+
+#+begin_src emacs-lisp
+  (set-face-attribute 'default nil :font "Monospace" :height 120)
+
+
+  ;;(load-theme 'leuven t)
+  (use-package nord-theme
+    :config
+    (load-theme 'nord t))
+
+
+  ;; Dashboard
+  (use-package dashboard
+    :init
+    ;; Replace the default startup buffer.
+    (setq initial-buffer-choice 'dashboard-open)
+    :config
+    ;; Keep the interface minimal.
+    (dashboard-setup-startup-hook)
+    (setq dashboard-startup-banner 'logo)
+    (setq dashboard-center-content t)
+    (setq dashboard-navigation-cycle t))
+
+
+  (setq-default fill-column 80)
+  (add-hook 'prog-mode-hook #'display-fill-column-indicator-mode)
+
+
+  (use-package solaire-mode
+    :config
+    (solaire-global-mode 1))
+#+end_src
+
+* Sensible defaults
+
+#+begin_src emacs-lisp
+  (electric-pair-mode 1)
+  (delete-selection-mode 1)
+  (show-paren-mode 1)
+  (global-hl-line-mode 1)
+  (global-display-line-numbers-mode 1)
+  (column-number-mode 1)
+  (savehist-mode 1)
+  (recentf-mode 1)
+  (global-auto-revert-mode 1)
+  (xterm-mouse-mode 1)
+
+  (setq-default indent-tabs-mode nil
+                tab-width 4
+                fill-column 80)
+#+end_src
+
+* Completion stack
+** Vertico
+
+#+begin_src emacs-lisp
+  (use-package vertico
+    :init
+    (vertico-mode 1))
+#+end_src
+
+** Orderless
+
+#+begin_src emacs-lisp
+  (use-package orderless
+    :init
+    (setq completion-styles '(orderless basic)
+          completion-category-defaults nil
+          completion-category-overrides
+          '((file (styles basic partial-completion)))))
+#+end_src
+
+** Marginalia
+
+#+begin_src emacs-lisp
+  (use-package marginalia
+    :init
+    (marginalia-mode 1))
+#+end_src
+
+** Consult
+
+#+begin_src emacs-lisp
+  (use-package consult
+    :bind (("C-s"     . consult-line)
+           ("C-x b"   . consult-buffer)
+           ("M-y"     . consult-yank-pop)
+           ("C-c h"   . consult-history)
+           ("C-c k"   . consult-ripgrep)))
+#+end_src
+
+** Which-key
+
+#+begin_src emacs-lisp
+  (use-package which-key
+    :ensure t
+    :hook (after-init . which-key-mode)
+    :config
+    ;; Show the popup quickly.
+    (setq which-key-idle-delay 0.5
+          which-key-idle-secondary-delay 0.05
+
+          ;; Keep descriptions readable.
+          which-key-max-description-length 35
+          which-key-sort-order #'which-key-key-order-alpha
+
+          ;; Display options.
+          which-key-side-window-location 'bottom
+          which-key-side-window-max-height 0.25
+          which-key-show-docstrings t)
+
+    ;; Shorter names for common prefixes.
+    (which-key-add-key-based-replacements
+     "C-x 8" "unicode"
+     "C-c p" "project"
+     "C-c g" "git"
+     "C-c o" "open"))
+#+end_src
+
+* Project management
+
+Use the built-in =project.el=.
+
+#+begin_src emacs-lisp
+  (use-package project
+    :ensure nil
+    :bind (("C-c p f" . project-find-file)
+           ("C-c p p" . project-switch-project)
+           ("C-c p b" . project-switch-to-buffer)
+           ("C-c p k" . project-kill-buffers))
+    :config
+    (setq project-vc-extra-root-markers
+          '("Makefile"
+            "compile_commands.json"
+            ".project"
+            "package.json"
+            "Cargo.toml"
+            "go.mod")))
+#+end_src
+
+* Magit
+
+#+begin_src emacs-lisp
+  (use-package magit
+    :bind (("C-x g" . magit-status)))
+#+end_src
+
+* Org mode
+
+Configure Org and enable automatic tangling when this file is saved.
+
+#+begin_src emacs-lisp
+  (use-package org
+    :ensure nil
+    :hook (org-mode . visual-line-mode)
+    :config
+    (setq org-src-fontify-natively t
+          org-src-tab-acts-natively t
+          org-confirm-babel-evaluate nil
+          org-hide-emphasis-markers t))
+
+  (defun john/org-babel-tangle-config ()
+    "Automatically tangle config.org when saving."
+    (when (string-equal (buffer-file-name)
+                        (expand-file-name "config.org" user-emacs-directory))
+      (let ((org-confirm-babel-evaluate nil))
+        (org-babel-tangle))))
+
+  (add-hook 'org-mode-hook
+            (lambda ()
+              (add-hook 'after-save-hook #'john/org-babel-tangle-config
+                        nil 'local)))
+#+end_src
+
+* Programming
+** C and C++
+
+#+begin_src emacs-lisp
+  (defun john/c-mode-style ()
+    (setq c-default-style "k&r")
+    (setq c-basic-offset 4)
+    (setq tab-width 4)
+    (setq indent-tabs-mode nil))  ; use spaces instead of tabs
+
+  (add-hook 'c-mode-hook #'john/c-mode-style)
+  (add-hook 'c++-mode-hook #'john/c-mode-style)
+
+  (add-hook 'c-mode-hook #'hs-minor-mode)
+  (add-hook 'c++-mode-hook #'hs-minor-mode)
+#+end_src
+
+** Lisp
+
+*** Paredit
+
+#+begin_src emacs-lisp
+  (use-package paredit
+    :hook ((emacs-lisp-mode . paredit-mode)
+           (lisp-mode . paredit-mode)
+           (scheme-mode . paredit-mode)
+           (clojure-mode . paredit-mode)
+           (fennel-mode . paredit-mode)))
+#+end_src
+
+*** Common Lisp
+
+#+begin_src emacs-lisp
+  (use-package slime
+    :config
+    (setq inferior-lisp-program "sbcl")
+    (slime-setup '(slime-fancy)))
+#+end_src
+
+*** Fennel
+
+#+begin_src emacs-lisp
+  (use-package fennel-mode)
+#+end_src
+
+** Eglot (LSP)
+
+#+begin_src emacs-lisp
+  (use-package eglot
+    :ensure nil
+    :hook ((c-mode c++-mode python-mode go-mode rust-mode fennel-mode) . eglot-ensure)
+    :config
+    (add-to-list 'eglot-server-programs
+                 '((c++-mode c-mode) . ("clangd" "--background-index")))
+    (add-to-list 'eglot-server-programs '(fennel-mode . ("fennel-ls"))))
+#+end_src
+
+* Terminal
+
+Simple eshell configuration (Not tangled).
+
+#+begin_src emacs-lisp :tangle no
+  (use-package eshell
+    :ensure nil
+    :bind (("C-c t" . eshell)))
+
+  (global-set-key (kbd "<escape>") #'keyboard-escape-quit)
+#+end_src
+
+EAT (Emulate A Terminal) configuration.
+
+#+begin_src emacs-lisp
+  (use-package eat
+    :bind (("C-c t" . eat)))
+#+end_src
+
+* Backups and autosaves
+
+Keep generated files out of project directories.
+
+#+begin_src emacs-lisp
+  (let ((backup-dir (expand-file-name "backups/" user-emacs-directory))
+        (autosave-dir (expand-file-name "auto-save/" user-emacs-directory)))
+    (make-directory backup-dir t)
+    (make-directory autosave-dir t)
+
+    (setq backup-directory-alist `(("." . ,backup-dir))
+          auto-save-file-name-transforms `((".*" ,autosave-dir t))
+          create-lockfiles nil))
+#+end_src
+
+* Useful keybindings
+
+#+begin_src emacs-lisp
+  (global-set-key (kbd "C-c r") #'revert-buffer)
+  (global-set-key (kbd "C-c e") #'eval-buffer)
+#+end_src
+
+* Final message
+
+#+begin_src emacs-lisp
+  (message "Emacs ready in %.2fs with %d garbage collections."
+           (float-time (time-subtract after-init-time before-init-time))
+           gcs-done)
+#+end_src
