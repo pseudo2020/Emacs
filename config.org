@@ -94,7 +94,12 @@
     (pixel-scroll-precision-mode)
     (save-place-mode)
     (savehist-mode)
-    (recentf-mode))
+    (recentf-mode)
+
+    (set-face-attribute
+     'default nil
+     :font "CodeNewRoman Nerd Font Mono"
+     :height 160))
 #+end_src
 
 ** Theme
@@ -145,32 +150,119 @@
 
 
 * Programming
-** LSP
-
+** Language Server
 #+begin_src emacs-lisp :tangle lisp/programming.el
   (use-package eglot
-    :ensure nil)
+    :ensure nil
+    :config
+    (add-to-list
+     'eglot-server-programs
+     '(c-mode . ("clangd"
+                 "--background-index"
+                 "--clang-tidy")))
+    (add-to-list
+     'eglot-server-programs
+     '(lua-mode . ("lua-language-server")))
+
+    (add-to-list
+     'eglot-server-programs
+     '(fennel-mode . ("fennel-ls"))))
 #+end_src
 
 ** Languages
-*** Python
-
+*** C
 #+begin_src emacs-lisp :tangle lisp/programming.el
-  (use-package python
-    :ensure nil)
+  (use-package cc-mode
+    :ensure nil
+    
+    :mode
+    ("\\.c\\'" . c-mode)
+    ("\\.h\\'" . c-mode)
+    
+    :hook
+    ((c-mode . eglot-ensure)
+     (c-mode . display-line-numbers-mode))
+    
+    :custom
+    (c-default-style "linux")
+    (c-basic-offset 4)
+    
+    :config
+    (setq-default c-basic-offset 4))
 #+end_src
 
-*** C
-
+**** Debugging
 #+begin_src emacs-lisp :tangle lisp/programming.el
+  (use-package gdb-mi
+    :ensure nil
+    :custom
+    (gdb-many-windows t)
+    (gdb-show-main t))
+#+end_src
 
+**** Build
+#+begin_src emacs-lisp :tangle lisp/programming.el
+(use-package compile
+  :ensure nil
+
+  :custom
+  (compilation-scroll-output t)
+
+  :bind
+  (("<f5>" . compile)
+   ("<f6>" . recompile)))
+#+end_src
+
+*** Makefile
+#+begin_src emacs-lisp :tangle lisp/programming.el
+  (use-package make-mode
+    :ensure nil
+    :mode
+    ("Makefile\\'" . makefile-mode))
 #+end_src
 
 *** Emacs Lisp
-
 #+begin_src emacs-lisp :tangle lisp/programming.el
   (use-package elisp-mode
     :ensure nil)
+#+end_src
+
+*** Lua
+#+begin_src emacs-lisp :tangle lisp/programming.el
+  (use-package lua-mode
+    :mode
+    "\\.lua\\'"
+
+    :hook
+    (lua-mode . eglot-ensure)
+
+    :custom
+    (lua-indent-level 4))
+#+end_src
+
+*** Fennel
+#+begin_src emacs-lisp :tangle lisp/programming.el
+  (use-package fennel-mode
+    :mode
+    "\\.fnl\\'"
+
+    :hook
+    (fennel-mode . eglot-ensure)
+
+    :custom
+    (fennel-mode-switch-to-repl-at-startup nil))
+#+end_src
+
+*** Python
+#+begin_src emacs-lisp :tangle lisp/programming.el
+  (use-package python
+    :ensure nil
+
+    :mode
+    "\\.py\\'"
+
+    :custom
+    (python-indent-offset 4))
 #+end_src
 
 
@@ -188,6 +280,29 @@
     ;;(setq dashboard-startup-banner "~/.emacs.d/etc/images/icons/emacs.png")
     (setq dashboard-center-content t)
     (setq dashboard-navigation-cycle t))
+#+end_src
+
+
+* Whitespace
+#+begin_src emacs-lisp :tangle lisp/editing.el
+  (use-package whitespace
+    :ensure nil
+
+    :hook
+    (prog-mode . whitespace-mode)
+
+    :custom
+    (whitespace-style
+     '(face
+       trailing
+       tabs
+       spaces
+       space-mark
+       tab-mark))
+
+    (whitespace-display-mappings
+     '((space-mark 32 [183] [46])
+       (tab-mark 9 [9655 9] [92 9]))))
 #+end_src
 
 
