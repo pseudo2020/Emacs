@@ -31,6 +31,7 @@
              "ui"
              "editing"
              "completion"
+             "projects"
              "programming"
              "dashboard"
              "org"
@@ -83,7 +84,7 @@
   (use-package emacs
     :hook
     (after-init . global-display-line-numbers-mode)
-    
+
     :config
     (menu-bar-mode -1)
     (tool-bar-mode -1)
@@ -98,15 +99,14 @@
 
     (set-face-attribute
      'default nil
-     :font "CodeNewRoman Nerd Font Mono"
-     :height 160))
+     :family "FiraCode Nerd Font Mono"
+     :height 120))
 #+end_src
 
-** Theme
+** Nord Theme
 #+begin_src emacs-lisp :tangle lisp/ui.el
-  (use-package nord-theme
-    :init
-    (load-theme 'nord t))
+  (use-package nord-theme)
+  (load-theme 'nord t)
 #+end_src
 
 ** Solaire Mode
@@ -114,6 +114,15 @@
   (use-package solaire-mode
     :config
     (solaire-global-mode 1))
+#+end_src
+
+** All the Icons
+On new install the following command must be run:
+`M-x all-the-icons-install-fonts`
+
+#+begin_src emacs-lisp :tangle lisp/ui.el
+  (use-package all-the-icons
+    :if (display-graphic-p))
 #+end_src
 
 
@@ -146,6 +155,35 @@
   (use-package marginalia
     :init
     (marginalia-mode))
+#+end_src
+
+** Consult
+#+begin_src emacs-lisp :tangle lisp/completion.el
+  (use-package consult
+    :bind (("C-s"     . consult-line)
+           ("C-x b"   . consult-buffer)
+           ("M-y"     . consult-yank-pop)
+           ("C-c h"   . consult-history)
+           ("C-c k"   . consult-ripgrep)))
+#+end_src
+
+
+* Projects
+#+begin_src emacs-lisp :tangle lisp/projects.el
+  (use-package project
+    :ensure nil
+    :bind (("C-c p f" . project-find-file)
+           ("C-c p p" . project-switch-project)
+           ("C-c p b" . project-switch-to-buffer)
+           ("C-c p k" . project-kill-buffers))
+    :config
+    (setq project-vc-extra-root-markers
+          '("Makefile"
+            "compile_commands.json"
+            ".project"
+            "package.json"
+            "Cargo.toml"
+            "go.mod")))
 #+end_src
 
 
@@ -268,18 +306,27 @@
 
 * Dashboard
 #+begin_src emacs-lisp :tangle lisp/dashboard.el
-  ;; Dashboard
-  (use-package dashboard 
+  (use-package dashboard
     :init
-    ;; Replace the default startup buffer.
     (setq initial-buffer-choice 'dashboard-open)
+
     :config
-    ;; Keep the interface minimal.
     (dashboard-setup-startup-hook)
-    (setq dashboard-startup-banner 'official)
-    ;;(setq dashboard-startup-banner "~/.emacs.d/etc/images/icons/emacs.png")
+
+    (setq dashboard-startup-banner
+          (expand-file-name "etc/images/icons/logo.png"
+                           user-emacs-directory))
+    
     (setq dashboard-center-content t)
-    (setq dashboard-navigation-cycle t))
+    (setq dashboard-navigation-cycle t)
+
+    (setq dashboard-icon-type 'all-the-icons)
+    (setq dashboard-set-heading-icons t)
+    (setq dashboard-set-file-icons t)
+
+    (setq dashboard-items '((recents  . 3)
+                            (projects . 3)
+                            (bookmarks . 3))))
 #+end_src
 
 
@@ -287,22 +334,16 @@
 #+begin_src emacs-lisp :tangle lisp/editing.el
   (use-package whitespace
     :ensure nil
-
     :hook
     (prog-mode . whitespace-mode)
-
+    
     :custom
     (whitespace-style
      '(face
        trailing
        tabs
-       spaces
-       space-mark
-       tab-mark))
-
-    (whitespace-display-mappings
-     '((space-mark 32 [183] [46])
-       (tab-mark 9 [9655 9] [92 9]))))
+       tab-mark
+       indentation::space)))
 #+end_src
 
 
