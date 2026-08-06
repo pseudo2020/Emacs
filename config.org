@@ -44,38 +44,100 @@ Use GNU ELPA, NonGNU ELPA and MELPA.
   (setq use-package-always-ensure t)
 #+end_src
 
+#+RESULTS:
+: t
+
 * Theme and appearance
 
 Sets font, theme and dashboard.
 Activate solaire-mode for visual buffer differentiation.
 
+** Font
+
 #+begin_src emacs-lisp
-  (set-face-attribute 'default nil :font "Monospace" :height 120)
+  (set-face-attribute 'default nil
+                      :family "CodeNewRoman Nerd Font Mono"
+                      :height 140
+                      :weight 'normal)
 
+  ;; Unicode and emoji fallbacks
+  (set-fontset-font t 'unicode "Noto Color Emoji" nil 'append)
+#+end_src
 
-  ;;(load-theme 'leuven t)
+** Theme
+*** Nord
+
+#+begin_src emacs-lisp :tangle no
   (use-package nord-theme
     :config
     (load-theme 'nord t))
+#+end_src
 
+*** Leuven
 
+#+begin_src emacs-lisp :tangle no
+  (load-theme 'leuven t)
+#+end_src
+
+*** Mood One
+
+#+begin_src emacs-lisp 
+  (use-package mood-one-theme
+    :config
+    (load-theme 'mood-one t))
+#+end_src
+
+** Whitespace
+
+#+begin_src emacs-lisp
+  (use-package whitespace
+    :hook (prog-mode . whitespace-mode)
+    :custom
+    (whitespace-style '(face tabs tab-mark trailing))
+    (whitespace-display-mappings
+     '((tab-mark ?\t [?» ?\t] [?\\ ?\t]))))
+#+end_src
+
+** Mode line
+
+#+begin_src emacs-lisp 
+  (use-package mood-line
+
+    ;; Enable mood-line
+    :config
+    (mood-line-mode)
+
+    ;; Use pretty Fira Code-compatible glyphs
+    :custom
+    (mood-line-glyph-alist mood-line-glyphs-fira-code))
+#+end_src
+
+** Dashboard
+
+#+begin_src emacs-lisp
   ;; Dashboard
-  (use-package dashboard
+  (use-package dashboard 
     :init
     ;; Replace the default startup buffer.
     (setq initial-buffer-choice 'dashboard-open)
     :config
     ;; Keep the interface minimal.
     (dashboard-setup-startup-hook)
-    (setq dashboard-startup-banner 'logo)
+    (setq dashboard-startup-banner 'official)
+    ;;(setq dashboard-startup-banner "~/.emacs.d/etc/images/icons/emacs.png")
     (setq dashboard-center-content t)
     (setq dashboard-navigation-cycle t))
+#+end_src
 
+** Column Line
 
-  (setq-default fill-column 80)
-  (add-hook 'prog-mode-hook #'display-fill-column-indicator-mode)
+#+begin_src emacs-lisp
+  
+#+end_src
 
+** Solaire Mode
 
+#+begin_src emacs-lisp
   (use-package solaire-mode
     :config
     (solaire-global-mode 1))
@@ -95,9 +157,55 @@ Activate solaire-mode for visual buffer differentiation.
   (global-auto-revert-mode 1)
   (xterm-mouse-mode 1)
 
-  (setq-default indent-tabs-mode nil
-                tab-width 4
-                fill-column 80)
+  (setq-default fill-column 80)
+  (add-hook 'prog-mode-hook #'display-fill-column-indicator-mode)
+#+end_src
+
+#+begin_src emacs-lisp
+  ;; Global indentation policy
+  (setq-default indent-tabs-mode t)   ; Use tabs for indentation
+  (setq-default tab-width 4)          ; A tab displays as 4 columns
+  (setq-default standard-indent 4)
+
+  ;; C/C++
+  (setq c-default-style "linux")
+  (setq c-basic-offset 4)
+
+  ;; Tree-sitter C/C++ modes (Emacs 29+)
+  (with-eval-after-load 'c-ts-mode
+    (setq c-ts-mode-indent-offset 4))
+  (with-eval-after-load 'c++-ts-mode
+    (setq c-ts-mode-indent-offset 4))
+
+  ;; Python (PEP 8 requires spaces)
+  (setq python-indent-offset 4)
+
+  ;; Rust
+  (setq rust-indent-offset 4)
+
+  ;; Go (gofmt always uses tabs)
+  (setq go-ts-mode-indent-offset 4)
+
+  ;; Java
+  (setq c-basic-offset 4)
+
+  ;; JavaScript / TypeScript
+  (setq js-indent-level 4)
+  (setq typescript-ts-mode-indent-offset 4)
+
+  ;; CSS
+  (setq css-indent-offset 4)
+
+  ;; Lua
+  (setq lua-indent-level 4)
+
+  ;; Fennel
+  (setq fennel-indent-offset 4)
+
+  ;; Makefiles must use tabs
+  (add-hook 'makefile-mode-hook
+            (lambda ()
+              (setq indent-tabs-mode t)))
 #+end_src
 
 * Completion stack
