@@ -100,7 +100,10 @@
     (set-face-attribute
      'default nil
      :family "FiraCode Nerd Font Mono"
-     :height 120))
+     :height 120)
+
+    (add-to-list 'default-frame-alist '(width . 100))
+    (add-to-list 'default-frame-alist '(height . 40)))
 #+end_src
 
 ** Nord Theme
@@ -208,6 +211,13 @@ On new install the following command must be run:
 #+end_src
 
 ** Languages
+*** All
+#+begin_src emacs-lisp :tangle lisp/programming.el
+  (defun john/scale-prog-font ()
+    (text-scale-set 1))
+
+  (add-hook 'prog-mode-hook #'john/scale-prog-font)
+#+end_src
 *** C
 #+begin_src emacs-lisp :tangle lisp/programming.el
   (use-package cc-mode
