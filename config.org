@@ -6,72 +6,86 @@
 
 * Startup
 ** Early Initialisation
+Use a high threshold for garbage collection during startup and restore to normal afterwards.
+
 #+begin_src emacs-lisp :tangle early-init.el
   (setq gc-cons-threshold (* 100 1024 1024))
+  (setq gc-cons-percentage 0.6)
 #+end_src 
 
 ** Initialisation
 #+begin_src emacs-lisp :tangle init.el
+  (add-hook 'emacs-startup-hook
+            (lambda ()
+              (setq gc-cons-threshold (* 16 1024 1024)
+                    gc-cons-percentage 0.1)))
+
   (setq package-archives
-        '(("gnu"    . "https://elpa.gnu.org/packages/")
-          ("nongnu" . "https://elpa.nongnu.org/nongnu/")
-          ("melpa"  . "https://melpa.org/packages/")))
+          '(("gnu"    . "https://elpa.gnu.org/packages/")
+            ("nongnu" . "https://elpa.nongnu.org/nongnu/")
+            ("melpa"  . "https://melpa.org/packages/")))
 
-  (setq use-package-always-ensure t
-        use-package-always-defer t)
-
-  (org-babel-load-file
-   (expand-file-name "config.org" user-emacs-directory))
+  (setq use-package-always-ensure t)
 #+end_src
 
 ** Load Configuration
+Load tangled lisp.
 #+begin_src emacs-lisp :tangle config.el
-  (dolist (file
-           '("core"
-             "ui"
-             "editing"
-             "completion"
-             "projects"
-             "programming"
-             "dashboard"
-             "org"
-             "git"))
-    (load (expand-file-name
-           (concat "lisp/" file ".el")
-           user-emacs-directory)))
+  (add-to-list 'load-path
+               (expand-file-name "lisp" user-emacs-directory))
+
+  (require 'jcore)
+  (require 'jui)
+  (require 'jediting)
+  (require 'jprogramming)
+  (require 'jcompletion)
+  (require 'jprojects)
+  (require 'jterminal)
+  (require 'jdashboard)
+  (require 'jllm)
+  (require 'jcustom)
 #+end_src
 
 
 * Core Emacs Settings
 ** Native Compilation
-#+begin_src emacs-lisp :tangle lisp/core.el
+#+begin_src emacs-lisp :tangle lisp/jcore.el
   (when (native-comp-available-p)
     (setq native-comp-async-report-warnings-errors nil))
 #+end_src
 
 ** Defaults
-#+begin_src emacs-lisp :tangle lisp/core.el
+#+begin_src emacs-lisp :tangle lisp/jcore.el
   (use-package emacs
+    :ensure nil
     :custom
     (indent-tabs-mode nil)
-    (tab-width 4)
-    (standard-indent 4)
-
+    (tab-width 2)
+    (standard-indent 2)
     (fill-column 80)
     (sentence-end-double-space nil)
+    (truncate-lines t)
 
     (inhibit-startup-screen t)
     (initial-scratch-message nil)
-    (ring-bell-function #'ignore)
 
-    (make-backup-files nil)
-    (auto-save-default nil)
-    (create-lockfiles nil)
-    
+    (ring-bell-function #'ignore)
     (visible-bell nil)
-    
-    (fill-column 80)
-    (truncate-lines t)
+
+    (setq make-backup-files t
+          backup-directory-alist
+          `(("." . ,(expand-file-name "backups/" user-emacs-directory)))
+          auto-save-default t
+          auto-save-file-name-transforms
+          `((".*" ,(expand-file-name "auto-save/" user-emacs-directory) t))
+          create-lockfiles t)
+
+    (setq savehist-file
+          (expand-file-name "etc/savehist" user-emacs-directory)
+          save-place-file
+          (expand-file-name "etc/save-place" user-emacs-directory)
+          recentf-save-file
+          (expand-file-name "etc/recentf" user-emacs-directory))
 
     :init
     (fset 'yes-or-no-p #'y-or-n-p))
@@ -80,11 +94,8 @@
 
 * Appearance
 ** User Interface
-#+begin_src emacs-lisp :tangle lisp/ui.el
-  (use-package emacs
-    :hook
-    (after-init . global-display-line-numbers-mode)
-
+#+begin_src emacs-lisp :tangle lisp/jui.el
+  (use-package emacs    
     :config
     (menu-bar-mode -1)
     (tool-bar-mode -1)
@@ -93,10 +104,7 @@
 
     (column-number-mode)
     (pixel-scroll-precision-mode)
-    (save-place-mode)
-    (savehist-mode)
-    (recentf-mode)
-
+  
     (set-face-attribute
      'default nil
      :family "FiraCode Nerd Font Mono"
@@ -107,13 +115,14 @@
 #+end_src
 
 ** Nord Theme
-#+begin_src emacs-lisp :tangle lisp/ui.el
-  (use-package nord-theme)
-  (load-theme 'nord t)
+#+begin_src emacs-lisp :tangle no
+  (use-package nord-theme
+    :config
+    (load-theme 'nord t))
 #+end_src
 
 ** Solaire Mode
-#+begin_src emacs-lisp :tangle lisp/ui.el
+#+begin_src emacs-lisp :tangle lisp/jui.el
   (use-package solaire-mode
     :config
     (solaire-global-mode 1))
@@ -123,14 +132,14 @@
 On new install the following command must be run:
 `M-x all-the-icons-install-fonts`
 
-#+begin_src emacs-lisp :tangle lisp/ui.el
+#+begin_src emacs-lisp :tangle lisp/jui.el
   (use-package all-the-icons
     :if (display-graphic-p))
 #+end_src
 
 
-* Editing Behaviour 
-#+begin_src emacs-lisp :tangle lisp/editing.el
+* Editing 
+#+begin_src emacs-lisp :tangle lisp/jediting.el
   (use-package electric
     :ensure nil
     :hook
@@ -138,109 +147,44 @@ On new install the following command must be run:
 #+end_src
 
 
-* Completion Framework
-** Vertico
-#+begin_src emacs-lisp :tangle lisp/completion.el
-  (use-package vertico
-    :init
-    (vertico-mode))
-#+end_src
-
-** Orderless Matching
-#+begin_src emacs-lisp :tangle lisp/completion.el
-  (use-package orderless
-    :custom
-    (completion-styles '(orderless basic)))
-#+end_src
-
-** Marginalia
-#+begin_src emacs-lisp :tangle lisp/completion.el
-  (use-package marginalia
-    :init
-    (marginalia-mode))
-#+end_src
-
-** Consult
-#+begin_src emacs-lisp :tangle lisp/completion.el
-  (use-package consult
-    :bind (("C-s"     . consult-line)
-           ("C-x b"   . consult-buffer)
-           ("M-y"     . consult-yank-pop)
-           ("C-c h"   . consult-history)
-           ("C-c k"   . consult-ripgrep)))
-#+end_src
-
-
-* Projects
-#+begin_src emacs-lisp :tangle lisp/projects.el
-  (use-package project
-    :ensure nil
-    :bind (("C-c p f" . project-find-file)
-           ("C-c p p" . project-switch-project)
-           ("C-c p b" . project-switch-to-buffer)
-           ("C-c p k" . project-kill-buffers))
-    :config
-    (setq project-vc-extra-root-markers
-          '("Makefile"
-            "compile_commands.json"
-            ".project"
-            "package.json"
-            "Cargo.toml"
-            "go.mod")))
-#+end_src
-
-
 * Programming
+** General
+#+begin_src emacs-lisp :tangle lisp/jprogramming.el
+  (defun john/prog-font-scale ()
+    (text-scale-set 1))
+  (add-hook 'prog-mode-hook #'john/scale-prog-font)
+
+  (add-hook 'prog-mode-hook #'display-line-numbers-mode)
+#+end_src
+
 ** Language Server
-#+begin_src emacs-lisp :tangle lisp/programming.el
+#+begin_src emacs-lisp :tangle lisp/jprogramming.el
   (use-package eglot
     :ensure nil
-    :config
+    :bind (:map eglot-mode-map
+                ("C-c f" . eglot-format-buffer))
+    :config  
     (add-to-list
      'eglot-server-programs
-     '(c-mode . ("clangd"
-                 "--background-index"
-                 "--clang-tidy")))
-    (add-to-list
-     'eglot-server-programs
-     '(lua-mode . ("lua-language-server")))
+     '(c-mode c++-mode . ("clangd")))
 
     (add-to-list
      'eglot-server-programs
-     '(fennel-mode . ("fennel-ls"))))
+     '(python-mode . ("pyright-langserver" "--stdio"))))
 #+end_src
 
 ** Languages
-*** All
-#+begin_src emacs-lisp :tangle lisp/programming.el
-  (defun john/scale-prog-font ()
-    (text-scale-set 1))
-
-  (add-hook 'prog-mode-hook #'john/scale-prog-font)
-#+end_src
 *** C
 #+begin_src emacs-lisp :tangle lisp/programming.el
   (use-package cc-mode
     :ensure nil
-    
-    :mode
-    ("\\.c\\'" . c-mode)
-    ("\\.h\\'" . c-mode)
-    
-    :hook
-    ((c-mode . eglot-ensure)
-     (c-mode . display-line-numbers-mode))
-    
-    :custom
-    (c-default-style "linux")
-    (c-basic-offset 4)
-    
+    :hook ((c-mode c++-mode) . eglot-ensure)
     :config
-    (setq-default c-basic-offset 4))
+    (setq c-basic-offset 2))
 #+end_src
 
 **** Debugging
-#+begin_src emacs-lisp :tangle lisp/programming.el
+#+begin_src emacs-lisp :tangle lisp/jprogramming.el
   (use-package gdb-mi
     :ensure nil
     :custom
@@ -249,34 +193,41 @@ On new install the following command must be run:
 #+end_src
 
 **** Build
-#+begin_src emacs-lisp :tangle lisp/programming.el
-(use-package compile
-  :ensure nil
+#+begin_src emacs-lisp :tangle lisp/jprogramming.el
+  (use-package compile
+    :ensure nil
 
-  :custom
-  (compilation-scroll-output t)
+    :custom
+    (compilation-scroll-output t)
 
-  :bind
-  (("<f5>" . compile)
-   ("<f6>" . recompile)))
+    :bind
+    (("<f5>" . compile)
+     ("<f6>" . recompile)))
 #+end_src
 
 *** Makefile
-#+begin_src emacs-lisp :tangle lisp/programming.el
+#+begin_src emacs-lisp :tangle lisp/jprogramming.el
   (use-package make-mode
     :ensure nil
     :mode
     ("Makefile\\'" . makefile-mode))
 #+end_src
 
-*** Emacs Lisp
-#+begin_src emacs-lisp :tangle lisp/programming.el
-  (use-package elisp-mode
-    :ensure nil)
+*** Python
+#+begin_src emacs-lisp :tangle lisp/jprogramming.el
+    (use-package python
+      :ensure nil
+
+      :mode
+      "\\.py\\'"
+
+      :custom
+      (python-indent-offset 4)
+      (indent-tabs-mode t))
 #+end_src
 
 *** Lua
-#+begin_src emacs-lisp :tangle lisp/programming.el
+#+begin_src emacs-lisp :tangle lisp/jprogramming.el
   (use-package lua-mode
     :mode
     "\\.lua\\'"
@@ -288,8 +239,37 @@ On new install the following command must be run:
     (lua-indent-level 4))
 #+end_src
 
-*** Fennel
-#+begin_src emacs-lisp :tangle lisp/programming.el
+*** Lisp
+**** General
+#+begin_src emacs-lisp :tangle lisp/jprogramming.el
+  (use-package paredit
+    :ensure t
+    :config
+    (dolist (hook '(emacs-lisp-mode-hook
+                    lisp-interaction-mode-hook
+                    lisp-mode-hook
+                    scheme-mode-hook
+                    racket-mode-hook
+                    racket-repl-mode-hook
+                    clojure-mode-hook
+                    clojurec-mode-hook
+                    cider-repl-mode-hook
+                    fennel-mode-hook
+                    fennel-repl-mode-hook))
+      (add-hook hook #'paredit-mode)))
+#+end_src
+**** Emacs Lisp
+#+begin_src emacs-lisp :tangle lisp/jprogramming.el
+  (use-package elisp-mode
+    :ensure nil)
+#+end_src
+**** Clojure
+#+begin_src emacs-lisp :tangle lisp/jprogramming.el
+  (use-package clojure-mode)
+  (use-package cider)
+#+end_src
+**** Fennel
+#+begin_src emacs-lisp :tangle lisp/jprogramming.el
   (use-package fennel-mode
     :mode
     "\\.fnl\\'"
@@ -301,59 +281,79 @@ On new install the following command must be run:
     (fennel-mode-switch-to-repl-at-startup nil))
 #+end_src
 
-*** Python
-#+begin_src emacs-lisp :tangle lisp/programming.el
-  (use-package python
-    :ensure nil
 
-    :mode
-    "\\.py\\'"
-
-    :custom
-    (python-indent-offset 4))
-#+end_src
-
-
-* Dashboard
-#+begin_src emacs-lisp :tangle lisp/dashboard.el
-  (use-package dashboard
+* Completion Framework
+** Vertico
+#+begin_src emacs-lisp :tangle lisp/jcompletion.el
+  (use-package vertico
     :init
-    (setq initial-buffer-choice 'dashboard-open)
+    (vertico-mode))
+#+end_src
 
-    :config
-    (dashboard-setup-startup-hook)
+** Orderless Matching
+#+begin_src emacs-lisp :tangle lisp/jcompletion.el
+  (use-package orderless
+    :custom
+    (completion-styles '(orderless basic)))
+#+end_src
 
-    (setq dashboard-startup-banner
-          (expand-file-name "etc/images/icons/logo.png"
-                           user-emacs-directory))
-    
-    (setq dashboard-center-content t)
-    (setq dashboard-navigation-cycle t)
+** Marginalia
+#+begin_src emacs-lisp :tangle lisp/jcompletion.el
+  (use-package marginalia
+    :init
+    (marginalia-mode))
+#+end_src
 
-    (setq dashboard-icon-type 'all-the-icons)
-    (setq dashboard-set-heading-icons t)
-    (setq dashboard-set-file-icons t)
+** Consult
+#+begin_src emacs-lisp :tangle lisp/jcompletion.el
+  (use-package consult
+    :bind (("C-'"     . consult-line)
+           ("C-x b"   . consult-buffer)
+           ("M-y"     . consult-yank-pop)
+           ("C-c h"   . consult-history)
+           ("C-c k"   . consult-ripgrep)))
+#+end_src
 
-    (setq dashboard-items '((recents  . 3)
-                            (projects . 3)
-                            (bookmarks . 3))))
+** Corfu
+#+begin_src emacs-lisp :tangle lisp/jcompletion.el
+  (use-package corfu
+    :custom
+    (corfu-auto t)
+    (corfu-auto-delay 0.1)
+    (corfu-auto-prefix 2)
+    :init
+    (global-corfu-mode))
 #+end_src
 
 
-* Whitespace
-#+begin_src emacs-lisp :tangle lisp/editing.el
-  (use-package whitespace
+* Projects
+#+begin_src emacs-lisp :tangle lisp/jprojects.el
+  (use-package project
     :ensure nil
-    :hook
-    (prog-mode . whitespace-mode)
-    
+    :bind-keymap
+    ("C-c p" . project-prefix-map)
     :custom
-    (whitespace-style
-     '(face
-       trailing
-       tabs
-       tab-mark
-       indentation::space)))
+    (project-vc-extra-root-markers
+     '("Makefile"
+       "compile_commands.json"
+       "Cargo.toml"
+       "go.mod")))
+#+end_src
+
+
+* Terminal
+** Vterm
+#+begin_src emacs-lisp :tangle lisp/jterminal.el
+  (use-package vterm)
+#+end_src
+
+
+* Which Key
+#+begin_src emacs-lisp :tangle lisp/jcore.el
+  (use-package which-key
+    :ensure nil
+    :config
+    (which-key-mode))
 #+end_src
 
 
@@ -371,9 +371,7 @@ On new install the following command must be run:
 #+begin_src emacs-lisp :tangle lisp/org.el
   (org-babel-do-load-languages
    'org-babel-load-languages
-   '((emacs-lisp . t)
-     (python . t)
-     (shell . t)))
+   '((emacs-lisp . t)))
 #+end_src
 
 
@@ -384,19 +382,67 @@ On new install the following command must be run:
 #+end_src
 
 
-* Terminal
-** Vterm
-#+begin_src emacs-lisp :tangle lisp/terminal.el
-  (use-package vterm)
+* Dashboard
+#+begin_src emacs-lisp :tangle lisp/jdashboard.el
+  (use-package dashboard
+    :init
+    (setq initial-buffer-choice #'dashboard-open)
+    :custom
+    (dashboard-center-content t)
+    (dashboard-navigation-cycle t)
+    (dashboard-icon-type 'all-the-icons)
+    (dashboard-set-heading-icons t)
+    (dashboard-set-file-icons t)
+    (dashboard-items '((recents . 3)
+                       (projects . 3)
+                       (bookmarks . 3)))
+    :config
+    (dashboard-setup-startup-hook))
+#+end_src
+
+
+* Ellama
+#+begin_src emacs-lisp :tangle lisp/jllm.el
+  (use-package ellama
+  :ensure t
+  :bind ("C-c e" . ellama)
+  :hook (org-ctrl-c-ctrl-c-hook . ellama-chat-send-last-message)
+  :init (setopt ellama-auto-scroll t)
+  :config
+  (ellama-context-header-line-global-mode +1)
+  (ellama-session-header-line-global-mode +1))
 #+end_src
 
 
 * Custom Functions
-#+begin_src emacs-lisp :tangle lisp/custom.el
-  (defun john/open-init-file ()
-    "Open my configuration."
-    (interactive)
-    (find-file
-     (expand-file-name "config.org"
-                       user-emacs-directory)))
+#+begin_src emacs-lisp :tangle lisp/jcustom.el
+#+end_src
+
+* Provide
+#+begin_src emacs-lisp :tangle lisp/jcore.el
+  (provide 'jcore)
+#+end_src
+#+begin_src emacs-lisp :tangle lisp/jui.el
+  (provide 'jui)
+#+end_src
+#+begin_src emacs-lisp :tangle lisp/jediting.el
+  (provide 'jediting)
+#+end_src
+#+begin_src emacs-lisp :tangle lisp/jprogramming.el
+  (provide 'jprogramming)
+#+end_src
+#+begin_src emacs-lisp :tangle lisp/jcompletion.el
+  (provide 'jcompletion)
+#+end_src
+#+begin_src emacs-lisp :tangle lisp/jprojects.el
+  (provide 'jprojects)
+#+end_src
+#+begin_src emacs-lisp :tangle lisp/jdashboard.el
+  (provide 'jdashboard)
+#+end_src
+#+begin_src emacs-lisp :tangle lisp/jllm.el
+  (provide 'jllm)
+#+end_src
+#+begin_src emacs-lisp :tangle lisp/jcustom.el
+  (provide 'jcustom)
 #+end_src
