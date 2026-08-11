@@ -2,6 +2,9 @@
 #+author: John
 #+property: header-args:emacs-lisp :tangle yes
 #+property: header-args:emacs-lisp :mkdirp yes
+#+property: header-args:emacs-lisp :comments link
+#+property: header-args:emacs-lisp :results silent
+#+property: header-args:emacs-lisp :lexical-binding t
 #+startup: overview
 
 * Architecture
@@ -31,11 +34,12 @@ Each module should have one responsibility. If a package is only useful for
 one domain, configure it in that domain's module rather than in =core=.
 
 * Bootstrap
-
 ** Early initialization
 #+begin_src emacs-lisp :tangle early-init.el
-(setq gc-cons-threshold (* 100 1024 1024)
+  ;;; early-init.el --- Early initialisation -*- lexical-binding: t; -*-
+  (setq gc-cons-threshold (* 100 1024 1024)
       gc-cons-percentage 0.6)
+  ;;; early-init.el ends here
 #+end_src
 
 ** Init
@@ -43,109 +47,118 @@ Keep =init.el= intentionally small: it establishes paths and delegates all
 configuration to =config.el=.
 
 #+begin_src emacs-lisp :tangle init.el
-(defconst jemacs-config-dir
-  (file-name-directory (or load-file-name buffer-file-name))
-  "Directory containing the JEmacs configuration.")
+  ;;; init.el --- Initialisation -*- lexical-binding: t; -*-
+  (defconst jemacs-config-dir
+    (file-name-directory (or load-file-name buffer-file-name))
+    "Directory containing the JEmacs configuration.")
 
-(defconst jemacs-config-org
-  (expand-file-name "jemacs.org" jemacs-config-dir)
-  "Literate source for the JEmacs configuration.")
+  (defconst jemacs-config-org
+    (expand-file-name "jemacs.org" jemacs-config-dir)
+    "Literate source for the JEmacs configuration.")
 
-(defconst jemacs-config-lisp-dir
-  (expand-file-name "lisp/" jemacs-config-dir)
-  "Directory containing generated JEmacs modules.")
+  (defconst jemacs-config-lisp-dir
+    (expand-file-name "lisp/" jemacs-config-dir)
+    "Directory containing generated JEmacs modules.")
 
-(add-to-list 'load-path jemacs-config-lisp-dir)
-
-(require 'config)
+  (add-to-list 'load-path jemacs-config-lisp-dir)
+  (load (expand-file-name "config.el" jemacs-config-dir) nil nil t)
+  ;;; init.el ends here
 #+end_src
 
 ** Top-level loader
 The loader is the only place that decides module load order.
 
 #+begin_src emacs-lisp :tangle config.el
-(require 'jemacs-core)
-(require 'jemacs-ui)
-(require 'jemacs-editing)
-(require 'jemacs-completion)
-(require 'jemacs-programming)
-(require 'jemacs-lang-c)
-(require 'jemacs-lang-python)
-(require 'jemacs-lang-lua)
-(require 'jemacs-lang-lisp)
-(require 'jemacs-projects)
-(require 'jemacs-terminal)
-(require 'jemacs-org)
-(require 'jemacs-git)
-(require 'jemacs-dashboard)
-(require 'jemacs-llm)
-(require 'jemacs-custom)
+  ;;; config.el --- Load configuration -*- lexical-binding: t; -*-
+  (require 'jemacs-core)
+  (require 'jemacs-ui)
+  (require 'jemacs-editing)
+  (require 'jemacs-completion)
+  (require 'jemacs-programming)
+  (require 'jemacs-lang-c)
+  (require 'jemacs-lang-python)
+  (require 'jemacs-lang-lua)
+  (require 'jemacs-lang-lisp)
+  (require 'jemacs-projects)
+  (require 'jemacs-terminal)
+  (require 'jemacs-org)
+  (require 'jemacs-git)
+  (require 'jemacs-dashboard)
+  (require 'jemacs-llm)
+  (require 'jemacs-custom)
 
-(add-hook
- 'emacs-startup-hook
- (lambda ()
-   (setq gc-cons-threshold (* 16 1024 1024)
-         gc-cons-percentage 0.1)))
+  (add-hook
+   'emacs-startup-hook
+   (lambda ()
+     (setq gc-cons-threshold (* 16 1024 1024)
+           gc-cons-percentage 0.1)))
+  ;;; config.el ends here
 #+end_src
 
 * Core
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle lisp/jemacs-core.el
+:END:
 
 Global package management and Emacs-wide defaults belong here. Nothing
 domain-specific should be added to this module.
 
-#+begin_src emacs-lisp :tangle lisp/jemacs-core.el
-(require 'package)
+#+begin_src emacs-lisp
+  ;;; jemacs-core.el --- Core configuration -*- lexical-binding: t; -*-
+  (require 'package)
 
-(when (native-comp-available-p)
-  (setq native-comp-async-report-warnings-errors nil))
+  (when (native-comp-available-p)
+    (setq native-comp-async-report-warnings-errors nil))
 
-(setq package-archives
-      '(("gnu"    . "https://elpa.gnu.org/packages/")
-        ("nongnu" . "https://elpa.nongnu.org/nongnu/")
-        ("melpa"  . "https://melpa.org/packages/")))
+  (setq package-archives
+        '(("gnu"    . "https://elpa.gnu.org/packages/")
+          ("nongnu" . "https://elpa.nongnu.org/nongnu/")
+          ("melpa"  . "https://melpa.org/packages/")))
 
-(require 'use-package)
-(setq use-package-always-ensure t)
+  (require 'use-package)
+  (setq use-package-always-ensure t)
 
-(use-package emacs
-  :ensure nil
-  :custom
-  (indent-tabs-mode nil)
-  (tab-width 2)
-  (standard-indent 2)
-  (fill-column 80)
-  (sentence-end-double-space nil)
-  (truncate-lines t)
-  (inhibit-startup-screen t)
-  (initial-scratch-message nil)
-  (ring-bell-function #'ignore)
-  (visible-bell nil)
-  (make-backup-files t)
-  (backup-directory-alist
-   `(("." . ,(expand-file-name "backups/" user-emacs-directory))))
-  (auto-save-default t)
-  (auto-save-file-name-transforms
-   `((".*" ,(expand-file-name "auto-save/" user-emacs-directory) t)))
-  (create-lockfiles t)
-  (savehist-file
-   (expand-file-name "etc/savehist" user-emacs-directory))
-  (save-place-file
-   (expand-file-name "etc/save-place" user-emacs-directory))
-  (recentf-save-file
-   (expand-file-name "etc/recentf" user-emacs-directory))
-  :init
-  (fset 'yes-or-no-p #'y-or-n-p))
+  (use-package emacs
+    :ensure nil
+    :custom
+    (indent-tabs-mode nil)
+    (tab-width 2)
+    (standard-indent 2)
+    (fill-column 80)
+    (sentence-end-double-space nil)
+    (truncate-lines t)
+    (inhibit-startup-screen t)
+    (initial-scratch-message nil)
+    (ring-bell-function #'ignore)
+    (visible-bell nil)
+  	
+  	(make-backup-files t)
+  	(backup-directory-alist
+     `(("." . ,(expand-file-name "backups/" user-emacs-directory))))
+    (auto-save-default t)
+    (auto-save-file-name-transforms
+     `((".*" ,(expand-file-name "auto-save/" user-emacs-directory) t)))
+    (create-lockfiles t)
+    :init
+    (fset 'yes-or-no-p #'y-or-n-p))
 
-(use-package which-key
-  :ensure nil
-  :config
-  (which-key-mode 1))
+  (use-package which-key
+    :ensure nil
+    :config
+    (which-key-mode 1))
+
+  (provide 'jemacs-core)
+  ;;; jemacs-core.el ends here
 #+end_src
 
 * Appearance
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle lisp/jemacs-ui.el
+:END:
 
-** User interface
-#+begin_src emacs-lisp :tangle lisp/jemacs-ui.el
+User interface
+#+begin_src emacs-lisp
+  ;;; jemacs-ui.el --- UI configuration -*- lexical-binding: t; -*-
   (use-package emacs
     :ensure nil
     :config
@@ -156,7 +169,7 @@ domain-specific should be added to this module.
     (column-number-mode 1)
     (pixel-scroll-precision-mode 1)
 
-    (load-theme 'leuvan t)
+    (load-theme 'leuven t)
     
     (set-face-attribute
      'default nil
@@ -167,244 +180,340 @@ domain-specific should be added to this module.
     (add-to-list 'default-frame-alist '(height . 40)))
 #+end_src
 
-** Solaire mode
-#+begin_src emacs-lisp :tangle lisp/jemacs-ui.el
-(use-package solaire-mode
-  :config
-  (solaire-global-mode 1))
+Solaire mode
+#+begin_src emacs-lisp
+  (use-package solaire-mode
+    :config
+    (solaire-global-mode 1))
 #+end_src
 
-** All the icons
+All the icons
 On a new installation, run =M-x all-the-icons-install-fonts= once.
 
+#+begin_src emacs-lisp
+  (use-package all-the-icons
+    :if (display-graphic-p))
+#+end_src
+
+Provide 
 #+begin_src emacs-lisp :tangle lisp/jemacs-ui.el
-(use-package all-the-icons
-  :if (display-graphic-p))
+  (provide 'jemacs-ui)
+  ;;; jemacs-ui.el ends here
 #+end_src
 
 * Editing
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle lisp/jemacs-editing.el
+:END:
 
 Editing behavior shared by programming and text modes belongs here.
 
-#+begin_src emacs-lisp :tangle lisp/jemacs-editing.el
-(use-package electric
-  :ensure nil
-  :hook
-  (prog-mode . electric-pair-mode))
+#+begin_src emacs-lisp
+  ;;; jemacs-editing.el --- Editing configuration -*- lexical-binding: t; -*-
+  (use-package electric
+    :ensure nil
+    :hook
+    (prog-mode . electric-pair-mode))
+
+  (provide 'jemacs-editing)
+  ;;; jemacs-editing.el ends here
 #+end_src
 
 * Completion
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle lisp/jemacs-completion.el
+:END:
 
 All minibuffer and in-buffer completion packages belong together so their
 configuration can be changed without touching unrelated modules.
 
-#+begin_src emacs-lisp :tangle lisp/jemacs-completion.el
-(use-package vertico
-  :init
-  (vertico-mode 1))
+#+begin_src emacs-lisp
+  ;;; jemacs-completion.el --- Completion configuration -*- lexical-binding: t; -*-
+  (use-package vertico
+    :init
+    (vertico-mode 1))
 
-(use-package orderless
-  :custom
-  (completion-styles '(orderless basic)))
+  (use-package orderless
+    :custom
+    (completion-styles '(orderless basic)))
 
-(use-package marginalia
-  :init
-  (marginalia-mode 1))
+  (use-package marginalia
+    :init
+    (marginalia-mode 1))
 
-(use-package consult
-  :bind
-  (("C-'"   . consult-line)
-   ("C-x b" . consult-buffer)
-   ("M-y"   . consult-yank-pop)
-   ("C-c h" . consult-history)
-   ("C-c k" . consult-ripgrep)))
+  (use-package consult
+    :bind
+    (("C-'"   . consult-line)
+     ("C-x b" . consult-buffer)
+     ("M-y"   . consult-yank-pop)
+     ("C-c h" . consult-history)
+     ("C-c k" . consult-ripgrep)))
 
-(use-package corfu
-  :custom
-  (corfu-auto t)
-  (corfu-auto-delay 0.1)
-  (corfu-auto-prefix 2)
-  :init
-  (global-corfu-mode 1))
+  (use-package corfu
+    :custom
+    (corfu-auto t)
+    (corfu-auto-delay 0.1)
+    (corfu-auto-prefix 2)
+    :init
+    (global-corfu-mode 1))
+
+  (provide 'jemacs-completion)
+  ;;; jemacs-completion.el ends here
 #+end_src
 
 * Programming
 
 ** Shared programming infrastructure
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle lisp/jemacs-programming.el
+:END:
 Only cross-language tooling belongs here.
 
-#+begin_src emacs-lisp :tangle lisp/jemacs-programming.el
-(defun jemacs-prog-font-scale ()
-  "Apply the preferred font scale to programming buffers."
-  (text-scale-set 1))
+#+begin_src emacs-lisp
+  ;;; jemacs-programming.el --- Shared programming configuration -*- lexical-binding: t; -*-
+  (defun jemacs-prog-font-scale ()
+    "Apply the preferred font scale to programming buffers."
+    (text-scale-set 1))
 
-(add-hook 'prog-mode-hook #'jemacs-prog-font-scale)
-(add-hook 'prog-mode-hook #'display-line-numbers-mode)
+  (add-hook 'prog-mode-hook #'jemacs-prog-font-scale)
+  (add-hook 'prog-mode-hook #'display-line-numbers-mode)
 
-(use-package eglot
-  :ensure nil
-  :bind
-  (:map eglot-mode-map
-        ("C-c f" . eglot-format-buffer))
-  :config
-  (add-to-list
-   'eglot-server-programs
-   '(c-mode c++-mode . ("clangd")))
-  (add-to-list
-   'eglot-server-programs
-   '(python-mode . ("pyright-langserver" "--stdio"))))
+  (use-package eglot
+    :ensure nil
+    :bind
+    (:map eglot-mode-map
+          ("C-c f" . eglot-format-buffer))
+    :config
+    (add-to-list
+     'eglot-server-programs
+     '(c-mode c++-mode . ("clangd")))
+    (add-to-list
+     'eglot-server-programs
+     '(python-mode . ("pyright-langserver" "--stdio"))))
+
+  (provide 'jemacs-programming)
+  ;;; jemacs-programming.el ends here
 #+end_src
 
 ** C and C++
-#+begin_src emacs-lisp :tangle lisp/jemacs-lang-c.el
-(use-package cc-mode
-  :ensure nil
-  :hook
-  ((c-mode c++-mode) . eglot-ensure)
-  :custom
-  (c-basic-offset 2))
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle lisp/jemacs-lang-c.el
+:END:
+#+begin_src emacs-lisp
+  ;;; jemacs-lang-c.el --- C mode configuration -*- lexical-binding: t; -*-
+  (use-package cc-mode
+    :ensure nil
+    :hook
+    ((c-mode c++-mode) . eglot-ensure)
+    :custom
+    (c-basic-offset 2))
 
-(use-package gdb-mi
-  :ensure nil
-  :custom
-  (gdb-many-windows t)
-  (gdb-show-main t))
+  (use-package gdb-mi
+    :ensure nil
+    :custom
+    (gdb-many-windows t)
+    (gdb-show-main t))
 
-(use-package compile
-  :ensure nil
-  :custom
-  (compilation-scroll-output t)
-  :bind
-  (("<f5>" . compile)
-   ("<f6>" . recompile)))
+  (use-package compile
+    :ensure nil
+    :custom
+    (compilation-scroll-output t)
+    :bind
+    (("<f5>" . compile)
+     ("<f6>" . recompile)))
 
-(use-package make-mode
-  :ensure nil
-  :mode
-  ("Makefile\\'" . makefile-mode))
+  (use-package make-mode
+    :ensure nil
+    :mode
+    ("Makefile\\'" . makefile-mode))
+
+  (provide 'jemacs-lang-c)
+  ;;; jemacs-lang-c.el ends here
 #+end_src
 
 ** Python
-#+begin_src emacs-lisp :tangle lisp/jemacs-lang-python.el
-(use-package python
-  :ensure nil
-  :mode
-  "\\.py\\'"
-  :hook
-  (python-mode . eglot-ensure)
-  :custom
-  (python-indent-offset 4)
-  (indent-tabs-mode t))
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle lisp/jemacs-lang-python.el
+:END:
+#+begin_src emacs-lisp
+  ;;; jemacs-lang-python.el --- Python configuration -*- lexical-binding: t; -*-
+  (use-package python
+    :ensure nil
+    :mode
+    "\\.py\\'"
+    :hook
+    (python-mode . eglot-ensure)
+    :custom
+    (python-indent-offset 4)
+    (indent-tabs-mode t))
+
+  (provide 'jemacs-lang-python)
+  ;;; jemacs-lang-python.el ends here
 #+end_src
 
 ** Lua
-#+begin_src emacs-lisp :tangle lisp/jemacs-lang-lua.el
-(use-package lua-mode
-  :mode
-  "\\.lua\\'"
-  :hook
-  (lua-mode . eglot-ensure)
-  :custom
-  (lua-indent-level 2))
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle lisp/jemacs-lang-lua.el
+:END:
+#+begin_src emacs-lisp
+  ;;; jemacs-lang-lua.el --- Lua configuration -*- lexical-binding: t; -*-
+  (use-package lua-mode
+  	:mode
+    "\\.lua\\'"
+    :hook
+    (lua-mode . eglot-ensure)
+    :custom
+    (lua-indent-level 2))
+
+  (provide 'jemacs-lang-lua)
+  ;;; jemacs-lang-lua.el ends here
 #+end_src
 
 ** Lisp family
-#+begin_src emacs-lisp :tangle lisp/jemacs-lang-lisp.el
-(use-package paredit
-  :config
-  (dolist
-      (hook '(emacs-lisp-mode-hook
-              lisp-interaction-mode-hook
-              lisp-mode-hook))
-    (add-hook hook #'paredit-mode)))
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle lisp/jemacs-lang-lisp.el
+:END:
+#+begin_src emacs-lisp
+  ;;; jemacs-lang-lisp.el --- Lisp configuration -*- lexical-binding: t; -*-
+  (use-package paredit
+    :config
+    (dolist
+        (hook '(emacs-lisp-mode-hook
+                lisp-interaction-mode-hook
+                lisp-mode-hook))
+      (add-hook hook #'paredit-mode)))
 
-(use-package elisp-mode
-  :ensure nil)
+  (use-package elisp-mode
+    :ensure nil)
+
+  (provide 'jemacs-lang-lisp)
+  ;;; jemacs-lang-lisp.el ends here
 #+end_src
 
 * Projects
-
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle lisp/jemacs-projects.el
+:END:
 Project discovery and project-wide keybindings belong here.
 
-#+begin_src emacs-lisp :tangle lisp/jemacs-projects.el
-(use-package project
-  :ensure nil
-  :bind-keymap
-  ("C-c p" . project-prefix-map)
-  :custom
-  (project-vc-extra-root-markers
-   '("Makefile"
-     "compile_commands.json"
-     "Cargo.toml"
-     "go.mod")))
+#+begin_src emacs-lisp
+  ;;; jemacs-projects.el --- Project configuration -*- lexical-binding: t; -*-
+  (use-package project
+    :ensure nil
+    :bind-keymap
+    ("C-c p" . project-prefix-map)
+    :custom
+    (project-vc-extra-root-markers
+     '("Makefile"
+       "compile_commands.json"
+       "Cargo.toml"
+       "go.mod")))
+
+  (provide 'jemacs-projects)
+  ;;; jemacs-projects.el ends here
 #+end_src
 
 * Terminal
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle lisp/jemacs-terminal.el
+:END:
+#+begin_src emacs-lisp
+  ;;; jemacs-terminal.el --- Terminal configuration -*- lexical-binding: t; -*-
+  (use-package vterm)
 
-#+begin_src emacs-lisp :tangle lisp/jemacs-terminal.el
-(use-package vterm)
+  (provide 'jemacs-terminal)
+  ;;; jemacs-terminal.el ends here
 #+end_src
 
 * Org
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle lisp/jemacs-org.el
+:END:
+#+begin_src emacs-lisp
+  ;;; jemacs-org.el --- Org configuration -*- lexical-binding: t; -*-
+  (use-package org
+    :ensure nil
+    :custom
+    (org-startup-indented t)
+    (org-hide-emphasis-markers t))
 
-#+begin_src emacs-lisp :tangle lisp/jemacs-org.el
-(use-package org
-  :ensure nil
-  :custom
-  (org-startup-indented t)
-  (org-hide-emphasis-markers t))
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((emacs-lisp . t)))
 
-(org-babel-do-load-languages
- 'org-babel-load-languages
- '((emacs-lisp . t)))
+  (provide 'jemacs-org)
+  ;;; jemacs-org.el ends here
 #+end_src
 
 * Git
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle lisp/jemacs-git.el
+:END:
+#+begin_src emacs-lisp
+  ;;; jemacs-git.el --- Git configuration -*- lexical-binding: t; -*-
+  (use-package magit)
 
-#+begin_src emacs-lisp :tangle lisp/jemacs-git.el
-(use-package magit)
+  (provide 'jemacs-git)
+  ;;; jemacs-git.el ends here
 #+end_src
 
 * Dashboard
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle lisp/jemacs-dashboard.el
+:END:
+#+begin_src emacs-lisp
+  ;;; jemacs-dashboard.el --- Dashboard configuration -*- lexical-binding: t; -*-
+  (use-package dashboard
+    :init
+    (setq initial-buffer-choice #'dashboard-open)
+    :custom
+    (dashboard-center-content t)
+    (dashboard-navigation-cycle t)
+    (dashboard-icon-type 'all-the-icons)
+    (dashboard-set-heading-icons t)
+    (dashboard-set-file-icons t)
+    (dashboard-items
+     '((recents . 3)
+       (projects . 3)
+       (bookmarks . 3)))
+    :config
+    (dashboard-setup-startup-hook))
 
-#+begin_src emacs-lisp :tangle lisp/jemacs-dashboard.el
-(use-package dashboard
-  :init
-  (setq initial-buffer-choice #'dashboard-open)
-  :custom
-  (dashboard-center-content t)
-  (dashboard-navigation-cycle t)
-  (dashboard-icon-type 'all-the-icons)
-  (dashboard-set-heading-icons t)
-  (dashboard-set-file-icons t)
-  (dashboard-items
-   '((recents . 3)
-     (projects . 3)
-     (bookmarks . 3)))
-  :config
-  (dashboard-setup-startup-hook))
+  (provide 'jemacs-dashboard)
+  ;;; jemacs-dashboard.el ends here
 #+end_src
 
 * LLM
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle lisp/jemacs-llm.el
+:END:
+#+begin_src emacs-lisp
+  ;;; jemacs-llm.el --- LLM configuration -*- lexical-binding: t; -*-
+  (use-package ellama
+    :bind
+    ("C-c e" . ellama)
+    :hook
+    (org-ctrl-c-ctrl-c-hook . ellama-chat-send-last-message)
+    :init
+    (setopt ellama-auto-scroll t)
+    :config
+    (ellama-context-header-line-global-mode 1)
+    (ellama-session-header-line-global-mode 1))
 
-#+begin_src emacs-lisp :tangle lisp/jemacs-llm.el
-(use-package ellama
-  :bind
-  ("C-c e" . ellama)
-  :hook
-  (org-ctrl-c-ctrl-c-hook . ellama-chat-send-last-message)
-  :init
-  (setopt ellama-auto-scroll t)
-  :config
-  (ellama-context-header-line-global-mode 1)
-  (ellama-session-header-line-global-mode 1))
+  (provide 'jemacs-llm)
+  ;;; jemacs-llm.el ends here
 #+end_src
 
 * Custom
-
+:PROPERTIES:
+:header-args:emacs-lisp: :tangle lisp/jemacs-custom.el
+:END:
 This is the escape hatch for personal functions that do not belong to a
 reusable subsystem. Keep it small; move stable functionality into a domain
 module when it grows.
 
-#+begin_src emacs-lisp :tangle lisp/jemacs-custom.el
+#+begin_src emacs-lisp
+  ;;; jemacs-custom.el --- Custom function configuration -*- lexical-binding: t; -*-
+  (provide 'jemacs-custom)
+  ;;; jemacs-custom.el ends here
 #+end_src
