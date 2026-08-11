@@ -4,7 +4,6 @@
 #+property: header-args:emacs-lisp :mkdirp yes
 #+property: header-args:emacs-lisp :comments link
 #+property: header-args:emacs-lisp :results silent
-#+property: header-args:emacs-lisp :lexical-binding t
 #+startup: overview
 
 * Architecture
@@ -157,6 +156,7 @@ domain-specific should be added to this module.
 :END:
 
 User interface
+
 #+begin_src emacs-lisp
   ;;; jemacs-ui.el --- UI configuration -*- lexical-binding: t; -*-
   (use-package emacs
@@ -181,6 +181,7 @@ User interface
 #+end_src
 
 Solaire mode
+
 #+begin_src emacs-lisp
   (use-package solaire-mode
     :config
@@ -195,10 +196,24 @@ On a new installation, run =M-x all-the-icons-install-fonts= once.
     :if (display-graphic-p))
 #+end_src
 
-Provide 
-#+begin_src emacs-lisp :tangle lisp/jemacs-ui.el
-  (provide 'jemacs-ui)
-  ;;; jemacs-ui.el ends here
+Nord theme
+
+ #+begin_src emacs-lisp
+  (use-package nord-theme
+  	:config
+    (mapc #'disable-theme custom-enabled-themes)
+    (load-theme 'nord t))
+#+end_src
+
+Centered window
+
+#+begin_src emacs-lisp
+  (use-package centered-window)
+#+end_src
+
+#+begin_src emacs-lisp
+    (provide 'jemacs-ui)
+    ;;; jemacs-ui.el ends here
 #+end_src
 
 * Editing
@@ -262,7 +277,6 @@ configuration can be changed without touching unrelated modules.
 #+end_src
 
 * Programming
-
 ** Shared programming infrastructure
 :PROPERTIES:
 :header-args:emacs-lisp: :tangle lisp/jemacs-programming.el
@@ -280,13 +294,20 @@ Only cross-language tooling belongs here.
 
   (use-package eglot
     :ensure nil
-    :bind
+
+  	:bind
     (:map eglot-mode-map
           ("C-c f" . eglot-format-buffer))
-    :config
+
+  	:config
     (add-to-list
      'eglot-server-programs
-     '(c-mode c++-mode . ("clangd")))
+     '(c-mode . ("clangd")))
+
+  	(add-to-list
+  	 'eglot-server-programs
+  	 '(c++-mode . ("clangd")))
+  	
     (add-to-list
      'eglot-server-programs
      '(python-mode . ("pyright-langserver" "--stdio"))))
